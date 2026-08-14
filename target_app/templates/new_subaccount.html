@@ -1,0 +1,31 @@
+<html>
+<head><title>LegacyBank - Open Sub-Account</title></head>
+<body bgcolor="#f0f0f0">
+<table width="100%" cellpadding="0" cellspacing="0"><tr>
+  <td bgcolor="#003366"><font color="white" size="5">&nbsp;LegacyBank Teller Terminal v3.2</font></td>
+</tr></table>
+<br>
+<div style="margin-left:20px;">
+<table border="1" cellpadding="8"><tr><td>
+  <table>
+    <tr><td colspan="2" bgcolor="#dddddd"><b>Open New Sub-Account for Member {{ member.id }}</b></td></tr>
+    {% if error %}<tr><td colspan="2"><font color="red">{{ error }}</font></td></tr>{% endif %}
+    <form method="post" action="/member/{{ member.id }}/new_subaccount{% if simulate %}?simulate={{ simulate }}{% endif %}">
+      <tr>
+        <td>Account Type</td>
+        <td>
+          <select name="account_type">
+            <option value="">-- select --</option>
+            <option value="CD">Certificate of Deposit</option>
+            <option value="MMA">Money Market Account</option>
+          </select>
+        </td>
+      </tr>
+      <tr><td>Initial Deposit</td><td><input type="text" name="initial_deposit"></td></tr>
+      <tr><td colspan="2" align="right"><input type="submit" value="Continue &raquo;"></td></tr>
+    </form>
+  </table>
+</td></tr></table>
+</div>
+</body>
+</html>

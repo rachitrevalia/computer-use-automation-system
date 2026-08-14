@@ -1,0 +1,32 @@
+<html>
+<head><title>LegacyBank - Member Detail</title></head>
+<body bgcolor="#f0f0f0">
+<table width="100%" cellpadding="0" cellspacing="0"><tr>
+  <td bgcolor="#003366"><font color="white" size="5">&nbsp;LegacyBank Teller Terminal v3.2</font></td>
+</tr></table>
+<br>
+<div style="margin-left:20px;">
+<table border="1" cellpadding="8"><tr><td>
+  <table>
+    <tr><td colspan="2" bgcolor="#dddddd"><b>Member Record</b></td></tr>
+    <tr>
+      <td valign="top">
+        <table border="0" cellpadding="3">
+          <tr><td>Member ID:</td><td>{{ member.id }}</td></tr>
+          <tr><td>Name:</td><td>{{ member.name }}</td></tr>
+          <tr><td>Status:</td><td>Active</td></tr>
+        </table>
+      </td>
+      <td valign="top" style="border-left:1px solid #999; padding-left:12px;">
+        <div>Current Balance</div>
+        <iframe src="/member/{{ member.id }}/balance_frame" width="260" height="90" frameborder="0"></iframe>
+      </td>
+    </tr>
+    <tr><td colspan="2" align="right">
+      <a href="/member/{{ member.id }}/new_subaccount{% if simulate %}?simulate={{ simulate }}{% endif %}">Open New Sub-Account &raquo;</a>
+    </td></tr>
+  </table>
+</td></tr></table>
+</div>
+</body>
+</html>

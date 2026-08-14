@@ -1,0 +1,3 @@
+/venv
+/target_app/venv
+target_app/__pycache__/data.cpython-311.pyc
