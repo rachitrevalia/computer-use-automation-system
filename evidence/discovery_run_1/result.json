@@ -1,0 +1,10 @@
+{
+  "goal": "look up member 12345 and read their savings balance",
+  "success": true,
+  "outputs": {
+    "savings_balance": "$4210.55"
+  },
+  "summary": "The savings balance for member 12345 is $4210.55.",
+  "stuck_reason": null,
+  "num_steps": 6
+}
