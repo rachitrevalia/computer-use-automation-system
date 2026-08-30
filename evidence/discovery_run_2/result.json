@@ -1,0 +1,11 @@
+{
+  "goal": "Look up member 12345, open a new sub-account for them using account type Money Market Account with an initial deposit of 500, and reach the confirmation screen. Extract the confirmation number and the deposit amount from the confirmation page.",
+  "success": true,
+  "outputs": {
+    "confirmation_number": "SUB-12345-1",
+    "deposit_amount": "$500.00"
+  },
+  "summary": "Successfully opened a Money Market Account for member 12345 with a $500 deposit and extracted the confirmation details.",
+  "stuck_reason": null,
+  "num_steps": 10
+}
