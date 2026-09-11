@@ -1,16 +1,5 @@
 """
 Action schema for the discovery agent's decision step.
-
-Design: every action the model can choose is declared as a Gemini
-function-calling tool. We force the model to always call exactly one
-function per turn (tool_config mode="ANY") so a decision is always
-structured data, never free text we'd have to parse. Every action also
-carries a required `reasoning` field -- not because Gemini can't narrate
-alongside a forced function call, but because tying "why" to "what"
-inside one structured object is more reliable, and gives us a clean
-per-step (state -> action -> reasoning) record for the evidence log and,
-later, the artifact's step-level documentation (Requirement 3.5, and the
-artifact schema's locator_rationale in Step 3).
 """
 
 from google.genai import types
@@ -52,7 +41,7 @@ ACTION_DECLARATIONS = [
         name="type_text",
         description="Type a value into a form field identified by its visible label text.",
         parameters={
-            "type": "object",
+            "type": "object", #type:ignore
             "properties": {
                 "label_text": {
                     "type": "string",
@@ -68,7 +57,7 @@ ACTION_DECLARATIONS = [
         name="select_option",
         description="Choose an option in a dropdown identified by its visible label text.",
         parameters={
-            "type": "object",
+            "type": "object",  #type:ignore
             "properties": {
                 "label_text": {
                     "type": "string",
@@ -87,7 +76,7 @@ ACTION_DECLARATIONS = [
         name="done",
         description="Call this when the goal has been fully accomplished. Provide the outputs the goal asked for.",
         parameters={
-            "type": "object",
+            "type": "object",  #type:ignore
             "properties": {
                 "outputs": {
                     "type": "object",
@@ -106,7 +95,7 @@ ACTION_DECLARATIONS = [
             "you don't recognize, or an action that has failed repeatedly."
         ),
         parameters={
-            "type": "object",
+            "type": "object",  #type:ignore
             "properties": {
                 "reason": {"type": "string", "description": "Clear description of what's blocking progress."},
                 "reasoning": _REASONING_PARAM,

@@ -1,0 +1,14 @@
+{
+  "capability_id": "legacybank.lookup_member_balance",
+  "inputs": {
+    "member_id": "00000"
+  },
+  "outcome": "business_outcome",
+  "outputs": {},
+  "business_outcome_type": "member_not_found",
+  "business_outcome_detail": "No member record found for ID",
+  "failed_step": null,
+  "expected": null,
+  "observed": null,
+  "recovered_from": null
+}

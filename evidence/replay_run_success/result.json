@@ -1,0 +1,16 @@
+{
+  "capability_id": "legacybank.lookup_member_balance",
+  "inputs": {
+    "member_id": "12345"
+  },
+  "outcome": "success",
+  "outputs": {
+    "savings_balance": "$4210.55"
+  },
+  "business_outcome_type": null,
+  "business_outcome_detail": null,
+  "failed_step": null,
+  "expected": null,
+  "observed": null,
+  "recovered_from": null
+}

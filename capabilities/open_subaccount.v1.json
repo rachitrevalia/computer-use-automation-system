@@ -1,0 +1,170 @@
+{
+  "schema_version": "1.0",
+  "capability_id": "legacybank.open_subaccount",
+  "name": "Open a new sub-account for a member",
+  "version": 1,
+  "created_from_run_id": "discovery_run_2",
+  "created_at": "2026-09-11T16:42:51.716815+00:00",
+  "description": "Logs into LegacyBank, looks up a member, opens a new sub-account of a specified type with an initial deposit, and reaches the confirmation screen. This is a WRITE action -- it creates a real sub-account record.",
+  "risk_level": "risky",
+  "inputs": [
+    {
+      "name": "member_id",
+      "type": "string",
+      "required": true,
+      "description": "The member ID to open the sub-account for, e.g. '12345'."
+    },
+    {
+      "name": "account_type",
+      "type": "string",
+      "required": true,
+      "description": "Visible dropdown option text for the account type, e.g. 'Money Market Account' or 'Certificate of Deposit'."
+    },
+    {
+      "name": "initial_deposit",
+      "type": "number",
+      "required": true,
+      "description": "Initial deposit amount in USD, e.g. 500."
+    }
+  ],
+  "outputs": [
+    {
+      "name": "confirmation_number",
+      "type": "string",
+      "description": "The generated sub-account confirmation number, e.g. 'SUB-12345-1'.",
+      "extraction": {
+        "source": "main_tree",
+        "frame_url_contains": null,
+        "near_text": "Confirmation Number:",
+        "extraction_pattern": null
+      }
+    },
+    {
+      "name": "deposit_amount",
+      "type": "string",
+      "description": "The confirmed initial deposit amount as displayed, including the '$' sign.",
+      "extraction": {
+        "source": "main_tree",
+        "frame_url_contains": null,
+        "near_text": "Initial Deposit:",
+        "extraction_pattern": "\\$[\\d,]+\\.\\d{2}"
+      }
+    }
+  ],
+  "steps": [
+    {
+      "step_number": 1,
+      "action": "type_text",
+      "url": null,
+      "target_text": null,
+      "label_text": "Username",
+      "value": "{{secret:teller_username}}",
+      "option_text": null,
+      "locator_strategy": "tier2_table_adjacent",
+      "locator_rationale": "No real <label> exists for this legacy login field.",
+      "is_login_step": true
+    },
+    {
+      "step_number": 2,
+      "action": "type_text",
+      "url": null,
+      "target_text": null,
+      "label_text": "Password",
+      "value": "{{secret:teller_password}}",
+      "option_text": null,
+      "locator_strategy": "tier2_table_adjacent",
+      "locator_rationale": "Same reasoning as the Username field.",
+      "is_login_step": true
+    },
+    {
+      "step_number": 3,
+      "action": "click",
+      "url": null,
+      "target_text": "Sign In",
+      "label_text": null,
+      "value": null,
+      "option_text": null,
+      "locator_strategy": "tier1_role_button",
+      "locator_rationale": "Real button control; visible text is its accessible name.",
+      "is_login_step": true
+    },
+    {
+      "step_number": 4,
+      "action": "type_text",
+      "url": null,
+      "target_text": null,
+      "label_text": "Member ID",
+      "value": "{member_id}",
+      "option_text": null,
+      "locator_strategy": "tier2_table_adjacent",
+      "locator_rationale": "No real <label> exists for the search field.",
+      "is_login_step": false
+    },
+    {
+      "step_number": 5,
+      "action": "click",
+      "url": null,
+      "target_text": "Look Up",
+      "label_text": null,
+      "value": null,
+      "option_text": null,
+      "locator_strategy": "tier1_role_button",
+      "locator_rationale": "Real button control; visible text is its accessible name.",
+      "is_login_step": false
+    },
+    {
+      "step_number": 6,
+      "action": "click",
+      "url": null,
+      "target_text": "Open New Sub-Account »",
+      "label_text": null,
+      "value": null,
+      "option_text": null,
+      "locator_strategy": "tier1_role_link",
+      "locator_rationale": "This is an <a> link, not a button -- its visible text is still its accessible name, so role=link targeting is robust.",
+      "is_login_step": false
+    },
+    {
+      "step_number": 7,
+      "action": "select_option",
+      "url": null,
+      "target_text": null,
+      "label_text": "Account Type",
+      "value": null,
+      "option_text": "{account_type}",
+      "locator_strategy": "tier2_table_adjacent",
+      "locator_rationale": "The <select> has no real <label>; targeted via the adjacent table cell.",
+      "is_login_step": false
+    },
+    {
+      "step_number": 8,
+      "action": "type_text",
+      "url": null,
+      "target_text": null,
+      "label_text": "Initial Deposit",
+      "value": "{initial_deposit}",
+      "option_text": null,
+      "locator_strategy": "tier2_table_adjacent",
+      "locator_rationale": "No real <label> exists for this field either.",
+      "is_login_step": false
+    },
+    {
+      "step_number": 9,
+      "action": "click",
+      "url": null,
+      "target_text": "Continue »",
+      "label_text": null,
+      "value": null,
+      "option_text": null,
+      "locator_strategy": "tier1_role_button",
+      "locator_rationale": "Real submit-button control; visible text is its accessible name.",
+      "is_login_step": false
+    }
+  ],
+  "success_checkpoint": {
+    "checkpoint_type": "page_contains_text",
+    "expected_text": "Sub-Account Opened Successfully",
+    "description": "This exact heading only renders after a real, successful sub-account creation. Note the URL alone can't be used as a checkpoint here: our target app renders the confirmation page directly on the form's POST response without a redirect, so the URL is identical to the form page's URL both before and after success. Content is the only reliable signal."
+  },
+  "start_url": "http://127.0.0.1:5001/login"
+}

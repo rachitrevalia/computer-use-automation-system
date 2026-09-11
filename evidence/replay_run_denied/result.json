@@ -1,0 +1,14 @@
+{
+  "capability_id": "legacybank.lookup_member_balance",
+  "inputs": {
+    "member_id": "99999"
+  },
+  "outcome": "business_outcome",
+  "outputs": {},
+  "business_outcome_type": "permission_denied",
+  "business_outcome_detail": "Access Denied.",
+  "failed_step": null,
+  "expected": null,
+  "observed": null,
+  "recovered_from": null
+}

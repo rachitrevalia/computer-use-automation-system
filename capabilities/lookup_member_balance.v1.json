@@ -1,0 +1,99 @@
+{
+  "schema_version": "1.0",
+  "capability_id": "legacybank.lookup_member_balance",
+  "name": "Look up member savings balance",
+  "version": 1,
+  "created_from_run_id": "discovery_run_1",
+  "created_at": "2026-09-11T16:42:51.715891+00:00",
+  "description": "Logs into LegacyBank, searches for a member by ID, and reads their current savings balance. Read-only -- no state is changed.",
+  "risk_level": "safe",
+  "inputs": [
+    {
+      "name": "member_id",
+      "type": "string",
+      "required": true,
+      "description": "The member ID to look up, e.g. '12345'."
+    }
+  ],
+  "outputs": [
+    {
+      "name": "savings_balance",
+      "type": "string",
+      "description": "The member's current savings balance as displayed, including the '$' sign.",
+      "extraction": {
+        "source": "frame_text",
+        "frame_url_contains": "/balance_frame",
+        "near_text": "Account Balance:",
+        "extraction_pattern": "\\$[\\d,]+\\.\\d{2}"
+      }
+    }
+  ],
+  "steps": [
+    {
+      "step_number": 1,
+      "action": "type_text",
+      "url": null,
+      "target_text": null,
+      "label_text": "Username",
+      "value": "{{secret:teller_username}}",
+      "option_text": null,
+      "locator_strategy": "tier2_table_adjacent",
+      "locator_rationale": "No <label> element exists for this field in the legacy markup; the visible 'Username' text is a plain table cell, not a real label. Targeting via the adjacent-cell structural match is the only viable strategy.",
+      "is_login_step": true
+    },
+    {
+      "step_number": 2,
+      "action": "type_text",
+      "url": null,
+      "target_text": null,
+      "label_text": "Password",
+      "value": "{{secret:teller_password}}",
+      "option_text": null,
+      "locator_strategy": "tier2_table_adjacent",
+      "locator_rationale": "Same reasoning as the Username field -- no real <label> exists.",
+      "is_login_step": true
+    },
+    {
+      "step_number": 3,
+      "action": "click",
+      "url": null,
+      "target_text": "Sign In",
+      "label_text": null,
+      "value": null,
+      "option_text": null,
+      "locator_strategy": "tier1_role_button",
+      "locator_rationale": "This is a real <button>/submit control; its visible text IS its accessible name, so role+name targeting is robust here.",
+      "is_login_step": true
+    },
+    {
+      "step_number": 4,
+      "action": "type_text",
+      "url": null,
+      "target_text": null,
+      "label_text": "Member ID",
+      "value": "{member_id}",
+      "option_text": null,
+      "locator_strategy": "tier2_table_adjacent",
+      "locator_rationale": "No real <label> exists for the search field, same as the login fields.",
+      "is_login_step": false
+    },
+    {
+      "step_number": 5,
+      "action": "click",
+      "url": null,
+      "target_text": "Look Up",
+      "label_text": null,
+      "value": null,
+      "option_text": null,
+      "locator_strategy": "tier1_role_button",
+      "locator_rationale": "Real button control; visible text is its accessible name.",
+      "is_login_step": false
+    }
+  ],
+  "success_checkpoint": {
+    "checkpoint_type": "page_contains_text",
+    "expected_text": "Member Record",
+    "description": "This heading only appears on a successfully rendered member detail page. The not-found, permission-denied, and session-expired pages each render distinct text instead, so this heading's presence reliably distinguishes real success from every other outcome we've observed."
+  },
+  "start_url": "http://127.0.0.1:5001/login"
+}

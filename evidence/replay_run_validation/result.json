@@ -1,0 +1,16 @@
+{
+  "capability_id": "legacybank.open_subaccount",
+  "inputs": {
+    "member_id": "67890",
+    "account_type": "Money Market Account",
+    "initial_deposit": "-5"
+  },
+  "outcome": "business_outcome",
+  "outputs": {},
+  "business_outcome_type": "validation_error",
+  "business_outcome_detail": "Initial deposit must be a positive amount.",
+  "failed_step": null,
+  "expected": null,
+  "observed": null,
+  "recovered_from": null
+}

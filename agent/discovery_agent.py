@@ -70,6 +70,7 @@ class DiscoveryAgent:
         self.evidence_dir.mkdir(parents=True, exist_ok=True)
         self.history: list[str] = []
         self._all_logs: list[StepLog] = []
+        (self.evidence_dir / "discovery_steps.jsonl").write_text("")
 
     def _build_prompt(self, goal: str, page_text: str) -> str:
         history_text = "\n".join(f"{i + 1}. {h}" for i, h in enumerate(self.history)) or "(no actions yet)"

@@ -1,0 +1,19 @@
+{
+  "capability_id": "legacybank.open_subaccount",
+  "inputs": {
+    "member_id": "67890",
+    "account_type": "Certificate of Deposit",
+    "initial_deposit": "750"
+  },
+  "outcome": "success",
+  "outputs": {
+    "confirmation_number": "SUB-67890-1",
+    "deposit_amount": "$750.00"
+  },
+  "business_outcome_type": null,
+  "business_outcome_detail": null,
+  "failed_step": null,
+  "expected": null,
+  "observed": null,
+  "recovered_from": null
+}

@@ -82,6 +82,50 @@ class BrowserController:
         self.page.goto(url)
         self.last_locator_tier = "navigate"
 
+    # ---------------- replay-only: tier-direct actions ----------------
+    # These skip straight to the tier already known to work from discovery
+    # (recorded in the artifact's locator_strategy field), instead of
+    # re-attempting the full tier1->tier2 fallback chain every time. That
+    # fallback chain is right for discovery (which doesn't know the tier in
+    # advance) but wastes a full timeout on tier 1 for every label-less
+    # field during replay, when we already know which tier works.
+
+    def click_via_tier(self, tier: str, target_text: str):
+        try:
+            if tier == "tier1_role_button":
+                self.page.get_by_role("button", name=target_text).first.click(timeout=5000)
+            elif tier == "tier1_role_link":
+                self.page.get_by_role("link", name=target_text).first.click(timeout=5000)
+            else:  # tier2_visible_text or unrecognized -- safest fallback
+                self.page.get_by_text(target_text, exact=False).first.click(timeout=5000)
+            self.last_locator_tier = tier
+        except Exception as e:
+            raise LocatorFailure(f"Could not click '{target_text}' via recorded tier '{tier}'") from e
+
+    def type_text_via_tier(self, tier: str, label_text: str, value: str):
+        try:
+            if tier == "tier1_label":
+                self.page.get_by_label(label_text).first.fill(value, timeout=5000)
+            else:  # tier2_table_adjacent or unrecognized
+                xpath = f"//td[normalize-space(text())='{label_text}']/following-sibling::td[1]//input"
+                self.page.locator(xpath).first.fill(value, timeout=5000)
+            self.last_locator_tier = tier
+        except Exception as e:
+            raise LocatorFailure(f"Could not fill field near '{label_text}' via recorded tier '{tier}'") from e
+
+    def select_option_via_tier(self, tier: str, label_text: str, option_text: str):
+        try:
+            if tier == "tier1_label":
+                self.page.get_by_label(label_text).first.select_option(label=option_text, timeout=5000)
+            else:  # tier2_table_adjacent or unrecognized
+                xpath = f"//td[normalize-space(text())='{label_text}']/following-sibling::td[1]//select"
+                self.page.locator(xpath).first.select_option(label=option_text, timeout=5000)
+            self.last_locator_tier = tier
+        except Exception as e:
+            raise LocatorFailure(f"Could not select option near '{label_text}' via recorded tier '{tier}'") from e
+
+    # ---------------- discovery-only: tiered fallback actions ----------------
+
     def click(self, target_text: str):
         """Tier 1: role button/link by accessible name. Tier 2: any element by visible text."""
         try:
