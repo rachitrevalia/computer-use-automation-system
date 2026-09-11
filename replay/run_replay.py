@@ -12,6 +12,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "agent"))
 from store import load_capability  # noqa: E402
 from browser_controller import BrowserController  # noqa: E402
 from executor import CapabilityReplayer, ReplayOutcome
+from schema import RiskLevel
 
 
 def parse_inputs(pairs: list[str]) -> dict:
@@ -30,10 +31,24 @@ def main():
     parser.add_argument("--input", action="append", default=[], help="key=value, repeatable.")
     parser.add_argument("--evidence-dir", default="../evidence/replay_run_1")
     parser.add_argument("--headless", action="store_true")
+    parser.add_argument(
+        "--confirm-risky",
+        action="store_true",
+        help="Required to execute a capability whose risk_level is 'risky' (e.g. anything that writes/mutates state).",
+    )
     args = parser.parse_args()
 
     capability = load_capability(args.capability)
     inputs = parse_inputs(args.input)
+
+    if capability.risk_level == RiskLevel.RISKY and not args.confirm_risky:
+        print(
+            f"REFUSING TO RUN: '{capability.capability_id}' is flagged risk_level=risky "
+            f"(it writes/mutates state and may be hard to reverse). "
+            f"Re-run with --confirm-risky to proceed. No browser was launched.",
+            file=sys.stderr,
+        )
+        sys.exit(2)
 
     browser = BrowserController(headless=args.headless).start()
     replayer = CapabilityReplayer(browser, evidence_dir=args.evidence_dir)

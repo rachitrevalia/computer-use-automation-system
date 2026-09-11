@@ -3,12 +3,12 @@
   "inputs": {
     "member_id": "67890",
     "account_type": "Certificate of Deposit",
-    "initial_deposit": "750"
+    "initial_deposit": "500"
   },
   "outcome": "success",
   "outputs": {
-    "confirmation_number": "SUB-67890-1",
-    "deposit_amount": "$750.00"
+    "confirmation_number": "SUB-67890-4",
+    "deposit_amount": "$500.00"
   },
   "business_outcome_type": null,
   "business_outcome_detail": null,

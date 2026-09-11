@@ -5,10 +5,14 @@ Deterministic replay engine -- the production execution path.
 
 import os
 import re
+import sys
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 from typing import Optional
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "guardrails"))
+from policy import check_allowlist, PolicyViolation  # noqa: E402
 
 from browser_controller import BrowserController, LocatorFailure
 from schema import Capability, ArtifactStep, ExtractionLocator, ActionType
@@ -47,8 +51,6 @@ class ReplayResult:
 
 
 def resolve_value(raw: Optional[str], inputs: dict) -> Optional[str]:
-    """Substitute a "{param}" or "{{secret:name}}" placeholder with its real
-    value. Anything else is a fixed literal and passes through unchanged."""
     if raw is None:
         return None
 
@@ -74,12 +76,9 @@ def resolve_value(raw: Optional[str], inputs: dict) -> Optional[str]:
 
 
 def extract_output(browser: BrowserController, extraction: ExtractionLocator) -> str:
-    """Deterministically pull one declared output's value from the current
-    page, using its declared anchor text and optional regex -- not free-form
-    model reading."""
     if extraction.source == "main_tree":
         text = browser.page.inner_text("body")
-    else:  # frame_text
+    else:
         text = ""
         for frame in browser.page.frames:
             if frame == browser.page.main_frame:
@@ -107,8 +106,6 @@ def extract_output(browser: BrowserController, extraction: ExtractionLocator) ->
 
 
 class StepExecutionError(Exception):
-    """Wraps a LocatorFailure with the step number it occurred on, so the
-    top-level replay() call can report accurate 'failed at step N' detail."""
     def __init__(self, step_number: int, message: str):
         self.step_number = step_number
         super().__init__(message)
@@ -154,9 +151,6 @@ class CapabilityReplayer:
             raise RuntimeError(f"Unknown action type in artifact: {step.action}")
 
     def _run_steps(self, steps: list[ArtifactStep], inputs: dict):
-        """Runs a sequence of steps. Returns None if all completed cleanly,
-        or (kind, outcome_type, marker_text, step_number) if a known
-        business/recoverable condition was hit mid-flow."""
         for step in steps:
             self._log(f"[replay] step {step.step_number}: {step.action.value}")
             try:
@@ -164,6 +158,12 @@ class CapabilityReplayer:
             except LocatorFailure as e:
                 self._save_failure_evidence(step.step_number)
                 raise StepExecutionError(step.step_number, str(e)) from e
+
+            try:
+                check_allowlist(self.browser.page.url)
+            except PolicyViolation as e:
+                self._save_failure_evidence(step.step_number)
+                raise StepExecutionError(step.step_number, f"guardrail violation: {e}") from e
 
             outcome = self._check_known_outcomes()
             if outcome:
@@ -178,6 +178,16 @@ class CapabilityReplayer:
 
     def replay(self, capability: Capability, inputs: dict) -> ReplayResult:
         self._log(f"Replaying '{capability.capability_id}' v{capability.version} with inputs={inputs}")
+
+        try:
+            check_allowlist(capability.start_url)
+        except PolicyViolation as e:
+            return ReplayResult(
+                outcome=ReplayOutcome.HARD_FAILURE,
+                expected="start_url within the configured allowlist",
+                observed=str(e),
+            )
+
         self.browser.navigate(capability.start_url)
 
         try:
@@ -186,7 +196,7 @@ class CapabilityReplayer:
             return ReplayResult(
                 outcome=ReplayOutcome.HARD_FAILURE,
                 failed_step=e.step_number,
-                expected="element to be found using the recorded locator strategy",
+                expected="element to be found using the recorded locator strategy, within the allowlist",
                 observed=str(e),
                 screenshot_path=str(self.evidence_dir / f"replay_failure_step_{e.step_number:02d}.png"),
             )

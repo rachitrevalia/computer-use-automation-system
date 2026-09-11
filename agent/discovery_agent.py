@@ -4,10 +4,14 @@ The discovery agent: observe -> decide (Gemini) -> act loop.
 
 import concurrent.futures
 import json
+import sys
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "guardrails"))
+from policy import check_allowlist, redact_action_args, is_sensitive_label, PolicyViolation, REDACTED  # noqa: E402
 
 from google import genai
 from google.genai import types
@@ -70,6 +74,7 @@ class DiscoveryAgent:
         self.evidence_dir.mkdir(parents=True, exist_ok=True)
         self.history: list[str] = []
         self._all_logs: list[StepLog] = []
+        self._sensitive_values: dict[str, str] = {}  # label_text -> value, for scrubbing the tree snapshot too
         (self.evidence_dir / "discovery_steps.jsonl").write_text("")
 
     def _build_prompt(self, goal: str, page_text: str) -> str:
@@ -149,9 +154,20 @@ class DiscoveryAgent:
             f"Gemini API still unavailable after {MAX_API_RETRIES} attempts. Last error: {last_error}"
         )
 
+    def _redact_text(self, text: str) -> str:
+        """Scrubs any previously-typed sensitive value out of arbitrary text
+        (specifically, the accessibility tree snapshot, which echoes back
+        whatever was typed into a field on subsequent observations -- a
+        second leak channel beyond action_args)."""
+        for value in self._sensitive_values.values():
+            if value:
+                text = text.replace(value, REDACTED)
+        return text
+
     def _save_step(self, log: StepLog, screenshot: bool = False):
         self._all_logs.append(log)
         log_path = self.evidence_dir / "discovery_steps.jsonl"
+        safe_args = redact_action_args(log.action_name, log.action_args)
         with open(log_path, "a") as f:
             f.write(
                 json.dumps(
@@ -159,10 +175,10 @@ class DiscoveryAgent:
                         "step_number": log.step_number,
                         "url": log.url,
                         "action_name": log.action_name,
-                        "action_args": log.action_args,
+                        "action_args": safe_args,
                         "locator_tier": log.locator_tier,
                         "error": log.error,
-                        "page_state_excerpt": log.page_state_excerpt[:1500],
+                        "page_state_excerpt": self._redact_text(log.page_state_excerpt[:1500]),
                     }
                 )
                 + "\n"
@@ -175,12 +191,18 @@ class DiscoveryAgent:
 
     def run(self, goal: str, start_url: str) -> DiscoveryResult:
         print(f"Starting discovery: navigating to {start_url}...", flush=True)
+        check_allowlist(start_url)
         self.browser.navigate(start_url)
         print("Navigation complete.", flush=True)
 
         step_num = 0
         for step_num in range(1, MAX_STEPS + 1):
             print(f"[step {step_num}] observing page ({self.browser.page.url})...", flush=True)
+            try:
+                check_allowlist(self.browser.page.url)
+            except PolicyViolation as e:
+                return DiscoveryResult(success=False, stuck_reason=f"guardrail violation: {e}", steps=self._all_logs)
+
             state = self.browser.observe()
             page_text = state.to_prompt_text()
 
@@ -188,6 +210,16 @@ class DiscoveryAgent:
             action_name, args = self._decide(goal, page_text)
             reasoning = args.get("reasoning", "")
             print(f"[step {step_num}] model chose: {action_name}({args})", flush=True)
+
+            # Track sensitive values as they're typed, so later observations
+            # of the same field (which echo the typed value back in the
+            # accessibility tree) can be scrubbed before being saved.
+            if action_name in ("type_text", "select_option"):
+                label = args.get("label_text", "")
+                if is_sensitive_label(label):
+                    val = args.get("value") or args.get("option_text")
+                    if val:
+                        self._sensitive_values[label] = val
 
             log = StepLog(
                 step_number=step_num,
