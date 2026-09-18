@@ -1,6 +1,5 @@
 """
 Deterministic replay engine -- the production execution path.
-
 """
 
 import os
@@ -13,6 +12,9 @@ from typing import Optional
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "guardrails"))
 from policy import check_allowlist, PolicyViolation  # noqa: E402
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "handoff"))
+from control import HandoffController, InterventionRequest  # noqa: E402
 
 from browser_controller import BrowserController, LocatorFailure
 from schema import Capability, ArtifactStep, ExtractionLocator, ActionType
@@ -48,6 +50,7 @@ class ReplayResult:
     observed: Optional[str] = None
     screenshot_path: Optional[str] = None
     recovered_from: Optional[str] = None
+    escalated: bool = False  # True if a human intervention was requested during this run
 
 
 def resolve_value(raw: Optional[str], inputs: dict) -> Optional[str]:
@@ -117,6 +120,8 @@ class CapabilityReplayer:
         self.evidence_dir = Path(evidence_dir)
         self.evidence_dir.mkdir(parents=True, exist_ok=True)
         self._log_lines: list[str] = []
+        self.handoff = HandoffController(evidence_dir=evidence_dir)
+        self._escalation_used = False  # bounded: at most one escalation attempt per replay
 
     def _log(self, line: str):
         self._log_lines.append(line)
@@ -150,14 +155,38 @@ class CapabilityReplayer:
         else:
             raise RuntimeError(f"Unknown action type in artifact: {step.action}")
 
-    def _run_steps(self, steps: list[ArtifactStep], inputs: dict):
+    def _run_steps(self, steps: list[ArtifactStep], inputs: dict, capability_id: str = ""):
         for step in steps:
             self._log(f"[replay] step {step.step_number}: {step.action.value}")
             try:
                 self._execute_step(step, inputs)
             except LocatorFailure as e:
                 self._save_failure_evidence(step.step_number)
-                raise StepExecutionError(step.step_number, str(e)) from e
+
+                if not self._escalation_used:
+                    self._escalation_used = True
+                    resumed = self.handoff.request_intervention(
+                        self.browser,
+                        InterventionRequest(
+                            capability_or_goal=capability_id,
+                            step_number=step.step_number,
+                            reason=str(e),
+                        ),
+                    )
+                    if resumed:
+                        # Human presumably fixed whatever blocked this step
+                        # (e.g. dismissed an unexpected dialog). Retry the
+                        # SAME step once on the same live session.
+                        try:
+                            self._execute_step(step, inputs)
+                        except LocatorFailure as e2:
+                            raise StepExecutionError(
+                                step.step_number, f"still failing after human intervention: {e2}"
+                            ) from e2
+                    else:
+                        raise StepExecutionError(step.step_number, f"{e} (escalation timed out, no human resumed)") from e
+                else:
+                    raise StepExecutionError(step.step_number, str(e)) from e
 
             try:
                 check_allowlist(self.browser.page.url)
@@ -191,7 +220,7 @@ class CapabilityReplayer:
         self.browser.navigate(capability.start_url)
 
         try:
-            result_marker = self._run_steps(capability.steps, inputs)
+            result_marker = self._run_steps(capability.steps, inputs, capability_id=capability.capability_id)
         except StepExecutionError as e:
             return ReplayResult(
                 outcome=ReplayOutcome.HARD_FAILURE,
@@ -221,8 +250,8 @@ class CapabilityReplayer:
 
                 self.browser.navigate(capability.start_url)
                 try:
-                    self._run_steps(login_steps, inputs)
-                    retry_marker = self._run_steps(non_login_steps, inputs)
+                    self._run_steps(login_steps, inputs, capability_id=capability.capability_id)
+                    retry_marker = self._run_steps(non_login_steps, inputs, capability_id=capability.capability_id)
                 except StepExecutionError as e:
                     return ReplayResult(
                         outcome=ReplayOutcome.HARD_FAILURE,
@@ -287,4 +316,9 @@ class CapabilityReplayer:
             )
 
         self.browser.screenshot(str(self.evidence_dir / "replay_success.png"))
-        return ReplayResult(outcome=ReplayOutcome.SUCCESS, outputs=outputs, recovered_from=recovered_from)
+        return ReplayResult(
+            outcome=ReplayOutcome.SUCCESS,
+            outputs=outputs,
+            recovered_from=recovered_from,
+            escalated=self._escalation_used,
+        )

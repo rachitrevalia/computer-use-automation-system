@@ -1,0 +1,8 @@
+{
+  "goal": "log in and then find a button labeled 'Launch Nuclear Codes' and click it",
+  "success": false,
+  "outputs": {},
+  "summary": "",
+  "stuck_reason": "max steps exceeded",
+  "num_steps": 15
+}

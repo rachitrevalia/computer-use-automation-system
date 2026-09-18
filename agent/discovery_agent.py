@@ -13,6 +13,9 @@ from typing import Optional
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "guardrails"))
 from policy import check_allowlist, redact_action_args, is_sensitive_label, PolicyViolation, REDACTED  # noqa: E402
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "handoff"))
+from control import HandoffController, InterventionRequest  # noqa: E402
+
 from google import genai
 from google.genai import types
 from google.genai import errors as genai_errors
@@ -75,6 +78,8 @@ class DiscoveryAgent:
         self.history: list[str] = []
         self._all_logs: list[StepLog] = []
         self._sensitive_values: dict[str, str] = {}  # label_text -> value, for scrubbing the tree snapshot too
+        self.handoff = HandoffController(evidence_dir=evidence_dir)
+        self._escalation_used = False  # bounded: at most one escalation attempt per run
         (self.evidence_dir / "discovery_steps.jsonl").write_text("")
 
     def _build_prompt(self, goal: str, page_text: str) -> str:
@@ -271,6 +276,24 @@ class DiscoveryAgent:
 
                 elif action_name == "stuck":
                     self._save_step(log, screenshot=True)
+                    if not self._escalation_used:
+                        self._escalation_used = True
+                        resumed = self.handoff.request_intervention(
+                            self.browser,
+                            InterventionRequest(
+                                capability_or_goal=goal,
+                                step_number=step_num,
+                                reason=args.get("reason", ""),
+                            ),
+                        )
+                        if resumed:
+                            # Human fixed whatever was blocking progress; let the
+                            # model see the current (human-modified) state and
+                            # decide the next action normally.
+                            self.history.append(
+                                f"stuck({args.get('reason', '')}) -- escalated to a human, who resumed the run"
+                            )
+                            continue
                     return DiscoveryResult(
                         success=False,
                         stuck_reason=args.get("reason", ""),
